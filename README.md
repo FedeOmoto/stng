@@ -1,0 +1,2 @@
+# stng
+Smalltalk Next Generation
