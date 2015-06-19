@@ -1,2 +1,2 @@
-# stng
+# StNG
 Smalltalk Next Generation
