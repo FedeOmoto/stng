@@ -3,6 +3,8 @@ import unicode, strutils, bignum
 type
   MessageNotUnderstood = object of SystemError
 
+  SubclassResponsibilityError = object of SystemError
+
   ObjectKind* = enum
     obj
     undefinedObject
@@ -15,94 +17,99 @@ type
     fp
     fraction
     scaledDecimal
+    arr
+    byteArray
 
   Object* = ref object of RootObj
-    kind: ObjectKind
-    data: int64
+    case kind*: ObjectKind
+      of boolean:
+        booleanValue: bool
+      of character:
+        characterValue: Rune
+      of str, symbol:
+        strValue: string
+      of smallInteger:
+        smallIntegerValue: int
+      of largeInteger:
+        largeIntegerValue: Int
+      of fp:
+        fpValue: float
+      of fraction:
+        fractionValue: Rat
+      # TODO
+      #of scaledDecimal:
+      #  scaledDecimalValue:
+      of arr:
+        arrValue: seq[Object]
+      of byteArray:
+        byteArrayValue: seq[byte]
+      else:
+        nil
 
-proc finalizeObject(o: Object) =
-  case o.kind:
-    of str: GC_unref(cast[string](o.data))
-    of largeInteger: GC_unref(cast[Int](o.data))
-    of fraction: GC_unref(cast[Rat](o.data))
-    else: discard
+  ObjectClass* = ref object of RootObj
 
 proc doesNotUnderstand*(receiver: string, message: string) =
   raise newException(MessageNotUnderstood, receiver & " does not understand #" &
                      message)
 
-proc newObject*(): Object =
-  new(result, finalizeObject)
+proc subclassResponsibility*(selector: string) =
+  raise newException(SubclassResponsibilityError, selector & " is the responsibility of the subclass")
 
-proc newUndefinedObject*(): Object =
-  new(result)
-  result.kind = undefinedObject
-  result.data = cast[int64](nil)
+proc newUndefinedObject*: Object =
+  Object(kind: undefinedObject)
 
-proc newObject*(data: bool): Object =
-  new(result)
-  result.kind = boolean
-  result.data = cast[int64](data)
+proc newObject*: Object =
+  Object(kind: obj)
 
-proc newObject*(data: Rune): Object =
-  new(result)
-  result.kind = character
-  result.data = cast[int64](data)
+proc newObject*[T](data: T, isSymbol: bool = false): Object =
+  when T is bool:
+    Object(kind: boolean, booleanValue: data)
+  elif T is Rune:
+    Object(kind: character, characterValue: data)
+  elif T is string:
+    if isSymbol: Object(kind: symbol, strValue: data) else: Object(kind: str, strValue: data)
+  elif T is int:
+    Object(kind: smallInteger, smallIntegerValue: data)
+  elif T is Int:
+    Object(kind: largeInteger, largeIntegerValue: data)
+  elif T is float:
+    Object(kind: fp, fpValue: data)
+  elif T is Rat:
+    Object(kind: fraction, fractionValue: data)
+  # TODO
+  #elif T is :
+  #  Object(kind: scaledDecimal, scaledDecimalValue: data)
+  elif T is seq[Object]:
+    Object(kind: arr, arrValue: data)
+  elif T is seq[byte]:
+    Object(kind: byteArray, byteArrayValue: data)
+  else:
+    raise newException(ObjectConversionError, "Invalid primitive type")
 
-proc newObject*(data: string, isSymbol = false): Object =
-  var s = data
-  GC_ref(s)
-  result = newObject()
-  if isSymbol: result.kind = symbol else: result.kind = str
-  result.data = cast[int64](s)
-
-proc newObject*(data: int): Object =
-  new(result)
-  result.kind = smallInteger
-  result.data = cast[int64](data)
-
-proc newObject*(data: Int): Object =
-  var i = data.clone
-  GC_ref(i)
-  result = newObject()
-  result.kind = largeInteger
-  result.data = cast[int64](i)
-
-proc newObject*(data: float): Object =
-  new(result)
-  result.kind = fp
-  result.data = cast[int64](data)
-
-proc newObject*(data: Rat): Object =
-  var r = data.clone
-  GC_ref(r)
-  result = newObject()
-  result.kind = fraction
-  result.data = cast[int64](r)
-
-proc boolValue*(o: Object): bool =
-  cast[bool](o.data)
-
-proc charValue*(o: Object): Rune =
-  cast[Rune](o.data)
-
-proc stringValue*(o: Object): string =
-  cast[string](o.data)
-
-proc symbolValue*(o: Object): string =
-  o.stringValue
-
-proc intValue*(o: Object): int =
-  cast[int](o.data)
-
-proc bigIntValue*(o: Object): Int =
-  cast[Int](o.data)
-
-proc floatValue*(o: Object): float =
-  cast[float](o.data)
-
-proc ratValue*(o: Object): Rat =
-  cast[Rat](o.data)
+proc primitiveValue*[T](o: Object): var T =
+  when T is bool:
+    o.booleanValue
+  elif T is Rune:
+    o.characterValue
+  elif T is string:
+    o.strValue
+  elif T is int:
+    o.smallIntegerValue
+  elif T is Int:
+    o.largeIntegerValue
+  elif T is float:
+    o.fpValue
+  elif T is Rat:
+    o.fractionValue
+  # TODO
+  #elif T is :
+  #  return o.scaledDecimalValue
+  elif T is seq[Object]:
+    o.arrValue
+  elif T is seq[byte]:
+    o.byteArrayValue
+  else:
+    nil
 
 proc `$`*(o: Object, indent: int = 0): string =
   result = "Object --> "
@@ -114,32 +121,61 @@ proc `$`*(o: Object, indent: int = 0): string =
   result &= "[\n  " & indent.spaces & "kind: " & $o.kind
 
   case o.kind:
-    of undefinedObject:
-      result &= ",\n" & (2 + indent).spaces & "data: nil"
     of boolean:
-      result &= ",\n" & (2 + indent).spaces & "data: " & $o.boolValue
+      result &= ",\n" & (2 + indent).spaces & "data: " & $primitiveValue[bool](o)
     of character:
-      result &= ",\n" & (2 + indent).spaces & "data: " & $o.charValue
-    of str:
-      result &= ",\n" & (2 + indent).spaces & "data: " & o.stringValue
-    of symbol:
-      result &= ",\n" & (2 + indent).spaces & "data: " & o.symbolValue
+      result &= ",\n" & (2 + indent).spaces & "data: " & $primitiveValue[Rune](o)
+    of str, symbol:
+      result &= ",\n" & (2 + indent).spaces & "data: " & $primitiveValue[string](o)
     of smallInteger:
-      result &= ",\n" & (2 + indent).spaces & "data: " & $o.intValue
+      result &= ",\n" & (2 + indent).spaces & "data: " & $primitiveValue[int](o)
     of largeInteger:
-      result &= ",\n" & (2 + indent).spaces & "data: " & $o.bigIntValue
+      result &= ",\n" & (2 + indent).spaces & "data: " & $primitiveValue[Int](o)
     of fp:
-      result &= ",\n" & (2 + indent).spaces & "data: " & $o.floatValue
+      result &= ",\n" & (2 + indent).spaces & "data: " & $primitiveValue[float](o)
     of fraction:
-      result &= ",\n" & (2 + indent).spaces & "data: " & $o.ratValue
-    of scaledDecimal:
-      # TODO
-      discard
+      result &= ",\n" & (2 + indent).spaces & "data: " & $primitiveValue[Rat](o)
+    of arr:
+      result &= ",\n" & (2 + indent).spaces & "data: " & $primitiveValue[seq[Object]](o)
+    of byteArray:
+      result &= ",\n" & (2 + indent).spaces & "data: " & $primitiveValue[seq[byte]](o)
     else:
-      discard
+      result &= ",\n" & (2 + indent).spaces & "data: nil"
 
   result &= "\n" & indent.spaces & "]"
 
-proc kind*(o: Object): ObjectKind {.inline.} = o.kind
+method size*(o: Object): int {.inline.} =
+  case o.kind:
+    of str:
+      o.strValue.len
+    of arr:
+      o.arrValue.len
+    of byteArray:
+      o.byteArrayValue.len
+    else:
+      0
 
-proc `kind=`*(o: Object, k: ObjectKind) {.inline.} = o.kind = k
+proc isSmallInteger*(o: Object): bool {.inline.} = o.kind == smallInteger
+
+proc isLargeInteger*(o: Object): bool {.inline.} = o.kind == largeInteger
+
+proc isInteger*(o: Object): bool {.inline.} =
+  o.kind == smallInteger or o.kind == largeInteger
+
+proc isString*(o: Object): bool {.inline.} = o.kind == str
+
+proc isArray*(o: Object): bool {.inline.} = o.kind == arr
+
+proc isByteArray*(o: Object): bool {.inline.} = o.kind == byteArray
+
+proc isBoolean*(o: Object): bool {.inline.} = o.kind == boolean
+
+proc isUndefinedObject*(o: Object): bool {.inline.} = o.kind == undefinedObject
+
+proc isNumber*(o: Object): bool {.inline.} =
+  case o.kind:
+    of fp, fraction, smallInteger, largeInteger, scaledDecimal: true
+    else: false
+
+proc newObjectClass*(): ObjectClass =
+  new(result)

@@ -10,13 +10,13 @@ type
     special
     separator
 
-  SmalltalkScanner = ref object
+  SmalltalkScanner* = ref object
     stream: UnicodeStringStream
     buffer: UnicodeStringStream
     tokenStart: int
     currentCharacter: Rune
     characterType: CharType
-    separatorsInLiterals: bool
+    separatorsInLiterals*: bool
     extendedLiterals: bool
     comments: seq[array[0 .. 1, int]]
     nameSpaceCharacter: char
@@ -148,7 +148,7 @@ proc scanKeyword(scanner: SmalltalkScanner): StValueToken =
                                        scanner.tokenStart,
                                        scanner.tokenStart + name.len - 1)
 
-proc previousStepPosition(scanner: SmalltalkScanner): int =
+proc previousStepPosition*(scanner: SmalltalkScanner): int =
   if scanner.characterType == eof: return scanner.stream.getPosition - 1
   return scanner.stream.getPosition - 2
 
@@ -539,9 +539,7 @@ when isMainModule:
   assert tk of StNumberLiteralToken
   assert tk.start == 0
   assert tk.stop == 1
-  assert tk.value.kind == smallInteger
-  assert tk.value.intValue == 37
-  assert tk.source == "37"
+  assert primitiveValue[int](tk.value) == 37
 
   s = newSmalltalkScanner(newUnicodeStringStream("-37rFF"))
   tk = s.next
@@ -549,7 +547,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 2
   assert tk.value.kind == smallInteger
-  assert tk.value.intValue == -37
+  assert primitiveValue[int](tk.value) == -37
   assert tk.source == "-37"
 
   s = newSmalltalkScanner(newUnicodeStringStream("16rFF"))
@@ -558,7 +556,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 4
   assert tk.value.kind == smallInteger
-  assert tk.value.intValue == 255
+  assert primitiveValue[int](tk.value) == 255
   assert tk.source == "16rFF"
 
   s = newSmalltalkScanner(newUnicodeStringStream("-16rFF"))
@@ -567,7 +565,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 5
   assert tk.value.kind == smallInteger
-  assert tk.value.intValue == -255
+  assert primitiveValue[int](tk.value) == -255
   assert tk.source == "-16rFF"
 
   s = newSmalltalkScanner(newUnicodeStringStream("16rFFFFFFFFFFFFFFFFFF"))
@@ -576,7 +574,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 20
   assert tk.value.kind == largeInteger
-  assert tk.value.bigIntValue == newInt("FFFFFFFFFFFFFFFFFF", 16)
+  assert primitiveValue[Int](tk.value) == newInt("FFFFFFFFFFFFFFFFFF", 16)
   assert tk.source == "16rFFFFFFFFFFFFFFFFFF"
 
   s = newSmalltalkScanner(newUnicodeStringStream("-16rFFFFFFFFFFFFFFFFFF"))
@@ -585,7 +583,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 21
   assert tk.value.kind == largeInteger
-  assert tk.value.bigIntValue == newInt("-FFFFFFFFFFFFFFFFFF", 16)
+  assert primitiveValue[Int](tk.value) == newInt("-FFFFFFFFFFFFFFFFFF", 16)
   assert tk.source == "-16rFFFFFFFFFFFFFFFFFF"
 
   s = newSmalltalkScanner(newUnicodeStringStream("16rFG"))
@@ -594,7 +592,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 3
   assert tk.value.kind == smallInteger
-  assert tk.value.intValue == 15
+  assert primitiveValue[int](tk.value) == 15
   assert tk.source == "16rF"
 
   s = newSmalltalkScanner(newUnicodeStringStream("-16rFG"))
@@ -603,7 +601,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 4
   assert tk.value.kind == smallInteger
-  assert tk.value.intValue == -15
+  assert primitiveValue[int](tk.value) == -15
   assert tk.source == "-16rF"
 
   s = newSmalltalkScanner(newUnicodeStringStream("5.6789"))
@@ -612,7 +610,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 5
   assert tk.value.kind == fp
-  assert tk.value.floatValue == 5.6789
+  assert primitiveValue[float](tk.value) == 5.6789
   assert tk.source == "5.6789"
 
   s = newSmalltalkScanner(newUnicodeStringStream($int.high))
@@ -621,7 +619,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == ($int.high).len - 1
   assert tk.value.kind == smallInteger
-  assert tk.value.intValue == int.high
+  assert primitiveValue[int](tk.value) == int.high
   assert tk.source == $int.high
 
   s = newSmalltalkScanner(newUnicodeStringStream("123456789012345678901234567890"))
@@ -630,7 +628,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 29
   assert tk.value.kind == largeInteger
-  assert tk.value.bigIntValue == newInt("123456789012345678901234567890", 10)
+  assert primitiveValue[Int](tk.value) == newInt("123456789012345678901234567890", 10)
   assert tk.source == "123456789012345678901234567890"
 
   # scanToken -> scanIdentifierOrKeyword / scanName / scanNameSpaceName /
@@ -641,7 +639,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 3
   assert tk.value.kind == boolean
-  assert tk.value.boolValue == true
+  assert primitiveValue[bool](tk.value) == true
 
   s = newSmalltalkScanner(newUnicodeStringStream("false"))
   tk = s.next
@@ -649,7 +647,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 4
   assert tk.value.kind == boolean
-  assert tk.value.boolValue == false
+  assert primitiveValue[bool](tk.value) == false
 
   s = newSmalltalkScanner(newUnicodeStringStream("nil"))
   tk = s.next
@@ -663,21 +661,21 @@ when isMainModule:
   assert tk of StIdentifierToken
   assert tk.start == 0
   assert tk.value.kind == str
-  assert tk.value.stringValue == "identifier"
+  assert primitiveValue[string](tk.value) == "identifier"
 
   s = newSmalltalkScanner(newUnicodeStringStream("name.space.name"))
   tk = s.next
   assert tk of StIdentifierToken
   assert tk.start == 0
   assert tk.value.kind == str
-  assert tk.value.stringValue == "name.space.name"
+  assert primitiveValue[string](tk.value) == "name.space.name"
 
   s = newSmalltalkScanner(newUnicodeStringStream("keyword:"))
   tk = s.next
   assert tk of StKeywordToken
   assert tk.start == 0
   assert tk.value.kind == str
-  assert tk.value.stringValue == "keyword:"
+  assert primitiveValue[string](tk.value) == "keyword:"
 
   s = newSmalltalkScanner(newUnicodeStringStream("multi:keyword:"))
   tk = s.next
@@ -685,7 +683,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 13
   assert tk.value.kind == obj.symbol
-  assert tk.value.stringValue == "multi:keyword:"
+  assert primitiveValue[string](tk.value) == "multi:keyword:"
 
   # scanToken -> scanBinary
   s = newSmalltalkScanner(newUnicodeStringStream("--"))
@@ -693,21 +691,21 @@ when isMainModule:
   assert tk of StBinarySelectorToken
   assert tk.start == 0
   assert tk.value.kind == obj.symbol
-  assert tk.value.stringValue == "-"
+  assert primitiveValue[string](tk.value) == "-"
 
   s = newSmalltalkScanner(newUnicodeStringStream("+-"))
   tk = s.next
   assert tk of StBinarySelectorToken
   assert tk.start == 0
   assert tk.value.kind == obj.symbol
-  assert tk.value.stringValue == "+"
+  assert primitiveValue[string](tk.value) == "+"
 
   s = newSmalltalkScanner(newUnicodeStringStream("-="))
   tk = s.next
   assert tk of StBinarySelectorToken
   assert tk.start == 0
   assert tk.value.kind == obj.symbol
-  assert tk.value.stringValue == "-="
+  assert primitiveValue[string](tk.value) == "-="
 
   # scanToken -> scanSpecialCharacter
   s = newSmalltalkScanner(newUnicodeStringStream(":)"))
@@ -715,14 +713,14 @@ when isMainModule:
   assert tk of StSpecialCharacterToken
   assert tk.start == 0
   assert tk.value.kind == character
-  assert tk.value.charValue == ':'.Rune
+  assert primitiveValue[Rune](tk.value) == ':'.Rune
 
   s = newSmalltalkScanner(newUnicodeStringStream("."))
   tk = s.next
   assert tk of StSpecialCharacterToken
   assert tk.start == 0
   assert tk.value.kind == character
-  assert tk.value.charValue == '.'.Rune
+  assert primitiveValue[Rune](tk.value) == '.'.Rune
 
   s = newSmalltalkScanner(newUnicodeStringStream(":="))
   tk = s.next
@@ -737,7 +735,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 19
   assert tk.value.kind == str
-  assert tk.value.stringValue == "unterminated string"
+  assert primitiveValue[string](tk.value) == "unterminated string"
 
   s = newSmalltalkScanner(newUnicodeStringStream("'string'"))
   tk = s.next
@@ -745,7 +743,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 7
   assert tk.value.kind == str
-  assert tk.value.stringValue == "string"
+  assert primitiveValue[string](tk.value) == "string"
 
   s = newSmalltalkScanner(newUnicodeStringStream("'文字列'"))
   tk = s.next
@@ -753,7 +751,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 10
   assert tk.value.kind == str
-  assert tk.value.stringValue == "文字列"
+  assert primitiveValue[string](tk.value) == "文字列"
 
   s = newSmalltalkScanner(newUnicodeStringStream("'string1''string2'"))
   tk = s.next
@@ -761,7 +759,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 17
   assert tk.value.kind == str
-  assert tk.value.stringValue == "string1'string2"
+  assert primitiveValue[string](tk.value) == "string1'string2"
 
   # scanToken -> scanLiteral / scanSymbol / scanStringSymbol /
   #              scanLiteralArrayToken / scanExtendedLiterals / scanOptimized /
@@ -772,7 +770,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 6
   assert tk.value.kind == obj.symbol
-  assert tk.value.stringValue == "symbol"
+  assert primitiveValue[string](tk.value) == "symbol"
 
   s = newSmalltalkScanner(newUnicodeStringStream("#+="))
   tk = s.next
@@ -780,7 +778,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 2
   assert tk.value.kind == obj.symbol
-  assert tk.value.stringValue == "+="
+  assert primitiveValue[string](tk.value) == "+="
 
   s = newSmalltalkScanner(newUnicodeStringStream("#'stringSymbol'"))
   tk = s.next
@@ -788,21 +786,21 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 14
   assert tk.value.kind == obj.symbol
-  assert tk.value.stringValue == "stringSymbol"
+  assert primitiveValue[string](tk.value) == "stringSymbol"
 
   s = newSmalltalkScanner(newUnicodeStringStream("#("))
   tk = s.next
   assert tk of StLiteralArrayToken
   assert tk.start == 0
   assert tk.value.kind == str
-  assert tk.value.stringValue == "#("
+  assert primitiveValue[string](tk.value) == "#("
 
   s = newSmalltalkScanner(newUnicodeStringStream("#["))
   tk = s.next
   assert tk of StLiteralArrayToken
   assert tk.start == 0
   assert tk.value.kind == str
-  assert tk.value.stringValue == "#["
+  assert primitiveValue[string](tk.value) == "#["
 
   s = newSmalltalkScanner(newUnicodeStringStream("##extendedLiteral"))
   tk = s.next
@@ -810,7 +808,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 16
   assert tk.value.kind == obj.symbol
-  assert tk.value.stringValue == "extendedLiteral"
+  assert primitiveValue[string](tk.value) == "extendedLiteral"
 
   s = newSmalltalkScanner(newUnicodeStringStream("##!="))
   tk = s.next
@@ -818,7 +816,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 3
   assert tk.value.kind == obj.symbol
-  assert tk.value.stringValue == "!="
+  assert primitiveValue[string](tk.value) == "!="
 
   s = newSmalltalkScanner(newUnicodeStringStream("##'extendedStringSymbol'"))
   tk = s.next
@@ -826,7 +824,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 23
   assert tk.value.kind == obj.symbol
-  assert tk.value.stringValue == "extendedStringSymbol"
+  assert primitiveValue[string](tk.value) == "extendedStringSymbol"
 
   s = newSmalltalkScanner(newUnicodeStringStream("##("))
   tk = s.next
@@ -840,7 +838,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 1
   assert tk.value.kind == str
-  assert tk.value.stringValue == ""
+  assert primitiveValue[string](tk.value) == ""
 
   s = newSmalltalkScanner(newUnicodeStringStream("#"))
   tk = s.next
@@ -848,7 +846,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 0
   assert tk.value.kind == str
-  assert tk.value.stringValue == ""
+  assert primitiveValue[string](tk.value) == ""
 
   s = newSmalltalkScanner(newUnicodeStringStream("#."))
   tk = s.next
@@ -856,7 +854,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 0
   assert tk.value.kind == str
-  assert tk.value.stringValue == ""
+  assert primitiveValue[string](tk.value) == ""
 
   # scanToken -> scanLiteralCharacter / characterExpected
   s = newSmalltalkScanner(newUnicodeStringStream("$a"))
@@ -865,7 +863,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 1
   assert tk.value.kind == character
-  assert tk.value.charValue == 'a'.Rune
+  assert primitiveValue[Rune](tk.value) == 'a'.Rune
 
   s = newSmalltalkScanner(newUnicodeStringStream("$あ"))
   tk = s.next
@@ -873,7 +871,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 3
   assert tk.value.kind == character
-  assert tk.value.charValue == "あ".runeAt(0)
+  assert primitiveValue[Rune](tk.value) == "あ".runeAt(0)
 
   s = newSmalltalkScanner(newUnicodeStringStream("$"))
   tk = s.next
@@ -888,13 +886,13 @@ when isMainModule:
   assert tk of StIllegalCharacterToken
   assert tk.start == 0
   assert tk.value.kind == character
-  assert tk.value.charValue == '`'.Rune
+  assert primitiveValue[Rune](tk.value) == '`'.Rune
 
   s = newSmalltalkScanner(newUnicodeStringStream("る"))
   tk = s.next
   assert tk of StIllegalCharacterToken
   assert tk.start == 0
   assert tk.value.kind == character
-  assert tk.value.charValue == "る".runeAt(0)
+  assert primitiveValue[Rune](tk.value) == "る".runeAt(0)
 
   assert s.next.start == "る".runeLenAt(0)
