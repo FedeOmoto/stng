@@ -166,13 +166,13 @@ proc scanIdentifierOrKeyword(scanner: SmalltalkScanner): StValueToken =
 
   case name:
     of "true":
-      return newStLiteralToken(newObject(true), scanner.tokenStart,
+      return newStLiteralToken(True, scanner.tokenStart,
                                scanner.previousStepPosition)
     of "false":
-      return newStLiteralToken(newObject(false), scanner.tokenStart,
+      return newStLiteralToken(False, scanner.tokenStart,
                                scanner.previousStepPosition)
     of "nil":
-      return newStLiteralToken(newUndefinedObject(), scanner.tokenStart,
+      return newStLiteralToken(nil, scanner.tokenStart,
                                scanner.previousStepPosition)
     else:
       return newStIdentifierToken(newObject(name), scanner.tokenStart)
@@ -539,7 +539,9 @@ when isMainModule:
   assert tk of StNumberLiteralToken
   assert tk.start == 0
   assert tk.stop == 1
+  assert tk.value.kind == smallInteger
   assert primitiveValue[int](tk.value) == 37
+  assert tk.source == "37"
 
   s = newSmalltalkScanner(newUnicodeStringStream("-37rFF"))
   tk = s.next
@@ -639,7 +641,7 @@ when isMainModule:
   assert tk.start == 0
   assert tk.stop == 3
   assert tk.value.kind == boolean
-  assert primitiveValue[bool](tk.value) == true
+  assert primitiveValue[bool](tk.value)
 
   s = newSmalltalkScanner(newUnicodeStringStream("false"))
   tk = s.next
@@ -654,7 +656,7 @@ when isMainModule:
   assert tk of StLiteralToken
   assert tk.start == 0
   assert tk.stop == 2
-  assert tk.value.kind == undefinedObject
+  assert tk.value.isUndefinedObject
 
   s = newSmalltalkScanner(newUnicodeStringStream("identifier"))
   tk = s.next
@@ -878,7 +880,7 @@ when isMainModule:
   assert tk of StLiteralToken
   assert tk.start == 0
   assert tk.stop == 0
-  assert tk.value.kind == undefinedObject
+  assert tk.value.isUndefinedObject
 
   # illegalCharacter
   s = newSmalltalkScanner(newUnicodeStringStream("`"))

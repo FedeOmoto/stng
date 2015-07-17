@@ -7,7 +7,7 @@ type
 
   StExternalArgTypeNode* = ref object of StProgramNode
     typeOrdinal*: int
-    structClass*: ObjectClass
+    structClass*: Class
     indirections*: int
     start*: int
     FStop: int

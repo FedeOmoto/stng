@@ -10,7 +10,7 @@ type
     methodNode: StMethodNode
     st80Syntax: bool
     comments: seq[array[0 .. 1, int]]
-    methodClass: ObjectClass
+    methodClass: Class
     source: string
 
   # TODO
@@ -134,9 +134,9 @@ proc parseExternalCallingConvention(parser: SmalltalkParser): int =
   # TODO: print error?
   discard
 
-proc lookupExternalStructType(parser: SmalltalkParser, tk: StToken): ObjectClass =
+proc lookupExternalStructType(parser: SmalltalkParser, tk: StToken): Class =
   # TODO
-  new(result)
+  ObjectClass
 
 proc patchExternalDescriptorClose(parser: SmalltalkParser): string =
   # Hack needed because scanner treats trailing *> and **> as binary selectors rather than two tokens.
@@ -177,7 +177,7 @@ proc parseExternalArgType(parser: SmalltalkParser): StExternalArgTypeNode =
     result.indirections = 0
     return
 
-  var structClass: ObjectClass
+  var structClass: Class
   var valueType = ExternalValueTypes[primitiveValue[string](parser.currentToken.value)]
   if valueType == ExtCallArgINVALID: valueType = ExtCallArgSTRUCT
   if valueType == ExtCallArgSTRUCT: structClass = parser.lookupExternalStructType(parser.currentToken)
@@ -826,8 +826,7 @@ proc parseExpression(parser: SmalltalkParser, s: string): StSequenceNode =
     # TODO: print error?
     discard
 
-# TODO: inClass
-proc parseExpression*(s: string, inClass: ObjectClass, onError: proc ()): StProgramNode =
+proc parseExpression*(s: string, inClass: Class, onError: proc ()): StProgramNode =
   let parser = newSmalltalkParser()
   parser.errorBlock = onError
   parser.methodClass = inClass
@@ -840,7 +839,7 @@ proc parseExpression*(s: string, inClass: ObjectClass, onError: proc ()): StProg
     return node
 
 proc parseExpression*(s: string, onError: proc () = nil): StProgramNode =
-  parseExpression(s, newObjectClass(), onError)
+  parseExpression(s, ObjectClass, onError)
 
 proc parseUnaryPattern(parser: SmalltalkParser): StMethodNode =
   let selector = parser.currentToken
@@ -897,17 +896,15 @@ proc parseMethod*(parser: SmalltalkParser, s: string): StMethodNode =
 
   result.source = s
 
-proc parseMethod*(parser: SmalltalkParser, s: string, inClass: ObjectClass,
+proc parseMethod*(parser: SmalltalkParser, s: string, inClass: Class,
                   errorBlock: proc()): StMethodNode =
   parser.errorBlock = errorBlock
   parser.methodClass = inClass
   parser.initializeParserWith(s)
   parser.parseMethod(s)
 
-# TODO: inClass
-proc parseMethod*(s: string, inClass: ObjectClass, onError: proc () = nil): StMethodNode =
+proc parseMethod*(s: string, inClass: Class, onError: proc () = nil): StMethodNode =
   newSmalltalkParser().parseMethod(s, inClass, onError)
 
-# TODO: default class is UndefinedObject
 proc parseMethod*(s: string): StMethodNode =
-  parseMethod(s, newObjectClass())
+  parseMethod(s, UndefinedObjectClass)
